@@ -219,7 +219,7 @@ func TestRegisterValidatesUsernameEmailAndPassword(t *testing.T) {
 	}
 }
 
-func TestRegisterRejectsSelfAssignedAdminRole(t *testing.T) {
+func TestRegisterIgnoresSelfAssignedAdminRole(t *testing.T) {
 	server, users := newAuthTestAPI()
 	response := postJSON(t, server.routes(), "/api/auth/register", `{
 		"username":"playerone",
@@ -228,11 +228,35 @@ func TestRegisterRejectsSelfAssignedAdminRole(t *testing.T) {
 		"confirmPassword":"secure-password-123",
 		"role":"admin"
 	}`)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusCreated, response.Body)
+	}
+	var body struct {
+		User User `json:"user"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode registration response: %v", err)
+	}
+	if body.User.Role != "member" {
+		t.Fatalf("response role = %q, want member", body.User.Role)
+	}
+	stored, err := users.FindByLogin(context.Background(), "playerone")
+	if err != nil {
+		t.Fatalf("find created user: %v", err)
+	}
+	if stored.Role != "member" {
+		t.Fatalf("stored role = %q, want member", stored.Role)
+	}
+}
+
+func TestRegisterRejectsMalformedJSON(t *testing.T) {
+	server, users := newAuthTestAPI()
+	response := postJSON(t, server.routes(), "/api/auth/register", `{"username":`)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "invalid_request") {
+		t.Fatalf("status/body = %d %s, want invalid request", response.Code, response.Body)
 	}
 	if len(users.users) != 0 {
-		t.Fatal("role escalation attempt must not create an account")
+		t.Fatal("malformed registration must not create an account")
 	}
 }
 

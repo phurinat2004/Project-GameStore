@@ -143,6 +143,7 @@ type registerRequest struct {
 	Email           string `json:"email"`
 	Password        string `json:"password"`
 	ConfirmPassword string `json:"confirmPassword"`
+	Role            string `json:"role"`
 }
 
 func (server api) register(w http.ResponseWriter, r *http.Request) {
