@@ -376,3 +376,67 @@ func TestUserNotFoundErrorIsStable(t *testing.T) {
 		t.Fatalf("error = %v, want ErrUserNotFound", err)
 	}
 }
+
+func TestRequireAdmin(t *testing.T) {
+	tests := []struct {
+		name       string
+		user       *User
+		wantStatus int
+	}{
+		{
+			name:       "guest is unauthorized",
+			user:       nil,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "member is forbidden",
+			user: &User{
+				ID:   1,
+				Role: "member",
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "admin is allowed",
+			user: &User{
+				ID:   2,
+				Role: "admin",
+			},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, _ := newAuthTestAPI()
+
+			handler := server.requireAdmin(http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				},
+			))
+
+			request := httptest.NewRequest(http.MethodGet, "/api/admin/test", nil)
+
+			if tt.user != nil {
+				ctx := context.WithValue(
+					request.Context(),
+					authContextKey{},
+					*tt.user,
+				)
+				request = request.WithContext(ctx)
+			}
+
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			if response.Code != tt.wantStatus {
+				t.Errorf(
+					"status = %d, want %d",
+					response.Code,
+					tt.wantStatus,
+				)
+			}
+		})
+	}
+}

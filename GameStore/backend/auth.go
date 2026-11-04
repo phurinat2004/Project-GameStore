@@ -306,6 +306,35 @@ func (server api) requireAuth(next http.Handler) http.Handler {
 	})
 }
 
+func (server api) requireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, ok := r.Context().Value(authContextKey{}).(User)
+		if !ok {
+			writeAPIError(
+				w,
+				http.StatusUnauthorized,
+				"unauthorized",
+				"Sign in to continue.",
+				"",
+			)
+			return
+		}
+
+		if user.Role != "admin" {
+			writeAPIError(
+				w,
+				http.StatusForbidden,
+				"forbidden",
+				"Admin access is required.",
+				"",
+			)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (server api) newToken(userID int64) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(tokenLifetime)

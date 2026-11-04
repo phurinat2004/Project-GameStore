@@ -27,7 +27,12 @@ type Game struct {
 
 type gameStore interface {
 	ListGames(context.Context, string) ([]Game, error)
+	CreateGame(context.Context, Game) (Game, error)
+	UpdateGame(context.Context, int64, Game) (Game, error)
+	DeleteGame(context.Context, int64) error
 }
+
+var ErrGameNotFound = errors.New("game not found")
 
 type databaseHealth interface {
 	PingContext(context.Context) error
